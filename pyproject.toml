@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-customer-support-agent"
+version = "0.1.0"
+description = "Agente de atendimento com RAG e Function Calling"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas",
+    "numpy",
+    "pypdf",
+    "faiss-cpu",
+    "ollama",
+    "openai",
+    "python-dotenv"
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
