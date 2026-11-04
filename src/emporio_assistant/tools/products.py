@@ -35,8 +35,16 @@ def search_products(
 
     # Filtra pela categoria, quando informada
     if category:
+        normalized_category = category.strip().casefold()
+        normalized_category = {
+            "violão": "violões",
+            "violao": "violões",
+            "guitarra": "guitarras",
+            "baixo": "baixos",
+            "ukulele": "ukuleles",
+        }.get(normalized_category, normalized_category)
         table = table.loc[
-            table["name_category"].str.casefold() == category.casefold()
+            table["name_category"].str.casefold() == normalized_category
         ]
 
     # Filtra pelo preço máximo, quando informado
