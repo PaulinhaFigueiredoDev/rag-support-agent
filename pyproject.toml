@@ -13,7 +13,6 @@ dependencies = [
     "pypdf",
     "faiss-cpu",
     "ollama",
-    "openai",
     "python-dotenv"
 ]
 
