@@ -1,5 +1,5 @@
-from emporio_assistant.tools.orders import get_order
-from emporio_assistant.services.data_loader import load_table
+from loja_exemplo_assistant.tools.orders import get_order
+from loja_exemplo_assistant.services.data_loader import load_table
 
 
 def test_wrong_email_does_not_disclose_order():

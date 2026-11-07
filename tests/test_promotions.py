@@ -1,6 +1,6 @@
 from decimal import Decimal
-from emporio_assistant.services.data_loader import load_table
-from emporio_assistant.tools.promotions import get_product_price
+from loja_exemplo_assistant.services.data_loader import load_table
+from loja_exemplo_assistant.tools.promotions import get_product_price
 
 
 def test_unknown_product_is_not_found():

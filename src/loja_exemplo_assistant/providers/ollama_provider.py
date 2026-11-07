@@ -4,7 +4,7 @@ import json
 
 from ollama import chat
 
-from emporio_assistant.config import get_chat_model
+from loja_exemplo_assistant.config import get_chat_model
 from dataclasses import dataclass
 
 
@@ -66,7 +66,7 @@ def tool_result_message(call: ToolCall, result: object) -> dict:
 
 def run_ollama_turn(messages: list[dict], user_text: str) -> str:
     """Compatibilidade com a API anterior baseada em uma lista de mensagens."""
-    from emporio_assistant.agent import run_turn
-    from emporio_assistant.session import Session
+    from loja_exemplo_assistant.agent import run_turn
+    from loja_exemplo_assistant.session import Session
 
     return run_turn(Session.from_messages(messages), user_text)

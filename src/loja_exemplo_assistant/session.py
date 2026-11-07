@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from emporio_assistant.prompts import SYSTEM_PROMPT
+from loja_exemplo_assistant.prompts import SYSTEM_PROMPT
 
 
 @dataclass
@@ -19,7 +19,7 @@ class Session:
     @classmethod
     def from_messages(cls, messages: list[dict]) -> "Session":
         """Adaptador para chamadas antigas que passam somente o histórico."""
-        from emporio_assistant.policy import PURCHASE_QUESTION, is_return_intent
+        from loja_exemplo_assistant.policy import PURCHASE_QUESTION, is_return_intent
 
         pending = None
         if messages and messages[-1].get("role") == "assistant" and messages[-1].get("content") == PURCHASE_QUESTION:

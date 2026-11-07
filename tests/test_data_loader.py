@@ -1,6 +1,6 @@
 import pytest
-from emporio_assistant.services import data_loader
-from emporio_assistant.services.data_loader import load_table
+from loja_exemplo_assistant.services import data_loader
+from loja_exemplo_assistant.services.data_loader import load_table
 
 # Testa o carregamento de produtos
 def test_load_products_shape():
