@@ -1,10 +1,10 @@
-from emporio_assistant.agent import run_turn
-from emporio_assistant.session import Session
+from loja_exemplo_assistant.agent import run_turn
+from loja_exemplo_assistant.session import Session
 
 
 def main() -> None:
     session = Session()
-    print("Empório Assist (Ollama). Digite 'sair' para encerrar.")
+    print("Loja Exemplo Assist (Ollama). Digite 'sair' para encerrar.")
     while True:
         try:
             question = input("Cliente: ").strip()

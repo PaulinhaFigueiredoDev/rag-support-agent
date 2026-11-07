@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from emporio_assistant import agent
-from emporio_assistant.providers import ollama_provider
+from loja_exemplo_assistant import agent
+from loja_exemplo_assistant.providers import ollama_provider
 
 
 def ollama_message(content=None, calls=None):

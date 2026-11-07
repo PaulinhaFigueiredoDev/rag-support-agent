@@ -1,4 +1,4 @@
-from emporio_assistant.services.data_loader import load_table
+from loja_exemplo_assistant.services.data_loader import load_table
 
 
 def search_products(

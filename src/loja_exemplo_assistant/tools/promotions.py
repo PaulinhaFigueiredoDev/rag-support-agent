@@ -1,5 +1,5 @@
 from decimal import Decimal, ROUND_HALF_UP
-from emporio_assistant.services.data_loader import load_table
+from loja_exemplo_assistant.services.data_loader import load_table
 
 def get_product_price(product_id: int, payment: str | None = None) -> dict:
     products = load_table("products")

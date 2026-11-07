@@ -4,8 +4,8 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-from emporio_assistant.session import Session
-from emporio_assistant.tools.registry import execute_tool
+from loja_exemplo_assistant.session import Session
+from loja_exemplo_assistant.tools.registry import execute_tool
 
 FALLBACK = "Não consegui concluir a consulta. Posso ajudar com outra pergunta?"
 PURCHASE_QUESTION = "A compra foi online ou presencial?"
