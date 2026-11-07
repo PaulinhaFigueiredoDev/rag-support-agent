@@ -1,16 +1,16 @@
 """Orquestra um turno de atendimento com o modelo local."""
 
-from emporio_assistant.policy import (
+from loja_exemplo_assistant.policy import (
     FALLBACK,
     PURCHASE_QUESTION,
     finalize_policy_answer,
     is_policy_request,
     resolve_return,
 )
-from emporio_assistant.providers import ollama_provider
-from emporio_assistant.providers.ollama_provider import ToolCall
-from emporio_assistant.session import Session
-from emporio_assistant.tools.registry import TOOL_REGISTRY, TOOL_SCHEMAS, execute_tool
+from loja_exemplo_assistant.providers import ollama_provider
+from loja_exemplo_assistant.providers.ollama_provider import ToolCall
+from loja_exemplo_assistant.session import Session
+from loja_exemplo_assistant.tools.registry import TOOL_REGISTRY, TOOL_SCHEMAS, execute_tool
 
 MAX_TOOL_CALLS = 4
 

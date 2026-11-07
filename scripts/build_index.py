@@ -5,10 +5,10 @@ import faiss
 import numpy as np
 from ollama import embed
 
-from emporio_assistant.rag.ingestion import extract_pages, make_chunks
+from loja_exemplo_assistant.rag.ingestion import extract_pages, make_chunks
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCUMENT = ROOT / "data" / "documents" / "politicas_da_loja.pdf"
+DOCUMENT = ROOT / "data" / "documents" / "politicas_demo.pdf"
 OUTPUT = ROOT / "storage" / "faiss"
 MODEL = "embeddinggemma"
 

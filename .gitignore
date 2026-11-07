@@ -11,3 +11,4 @@ storage/faiss/
 
 # Documentos locais
 data/documents/*.pdf
+!data/documents/politicas_demo.pdf

@@ -3,10 +3,10 @@
 import json
 import math
 
-from emporio_assistant.tools.orders import get_order
-from emporio_assistant.tools.products import search_products
-from emporio_assistant.tools.promotions import get_product_price
-from emporio_assistant.tools.policies import consult_policy
+from loja_exemplo_assistant.tools.orders import get_order
+from loja_exemplo_assistant.tools.products import search_products
+from loja_exemplo_assistant.tools.promotions import get_product_price
+from loja_exemplo_assistant.tools.policies import consult_policy
 
 TOOLS = [search_products, get_order, get_product_price, consult_policy]
 TOOL_REGISTRY = {function.__name__: function for function in TOOLS}

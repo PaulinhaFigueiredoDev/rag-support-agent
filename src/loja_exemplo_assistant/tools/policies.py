@@ -1,6 +1,6 @@
 """Ferramenta de consulta aos trechos de políticas da loja."""
 
-from emporio_assistant.rag.retriever import retrieve_policy
+from loja_exemplo_assistant.rag.retriever import retrieve_policy
 
 
 def consult_policy(question: str) -> list[dict]:

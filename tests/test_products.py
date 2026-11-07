@@ -1,5 +1,5 @@
 import pytest
-from emporio_assistant.tools.products import search_products
+from loja_exemplo_assistant.tools.products import search_products
 
 
 def test_search_products_applies_filters():

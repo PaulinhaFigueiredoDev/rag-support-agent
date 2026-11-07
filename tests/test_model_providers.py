@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
-from emporio_assistant import config
-from emporio_assistant.providers import ollama_provider
+from loja_exemplo_assistant import config
+from loja_exemplo_assistant.providers import ollama_provider
 
 
 def test_local_model_configuration(monkeypatch):

@@ -1,8 +1,8 @@
 import builtins
 
 import main
-from emporio_assistant.providers import ollama_provider
-from emporio_assistant.tools.registry import TOOL_REGISTRY
+from loja_exemplo_assistant.providers import ollama_provider
+from loja_exemplo_assistant.tools.registry import TOOL_REGISTRY
 
 
 def test_main_keeps_session_history(monkeypatch, capsys):
@@ -22,7 +22,7 @@ def test_main_keeps_session_history(monkeypatch, capsys):
     assert histories[0][0] == histories[1][0]
     assert [item[1:] for item in histories] == [("Olá", 1), ("Outro assunto", 3)]
     output = capsys.readouterr().out
-    assert "Empório Assist (Ollama)" in output
+    assert "Loja Exemplo Assist (Ollama)" in output
     assert "Atendimento encerrado." in output
 
 
