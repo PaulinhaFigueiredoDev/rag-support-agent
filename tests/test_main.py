@@ -39,7 +39,8 @@ def test_main_completes_return_dialogue_with_session(monkeypatch, capsys):
         "page": 4,
         "text": (
             "4.1 Direito de Arrependimento (Compras Online). Devolução em até "
-            "7 (sete) dias corridos após o recebimento. Embalagem original, sem sinais de uso, "
+            "7 (sete) dias corridos após o recebimento, sem necessidade de justificativa. "
+            "Embalagem original, sem sinais de uso, "
             "com todos os acessórios e manuais. Reembolso na mesma forma de pagamento original "
             "em até 10 dias úteis. O frete de devolução é por conta da loja em caso de arrependimento."
         ),

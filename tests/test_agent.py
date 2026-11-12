@@ -30,7 +30,8 @@ def return_policy_evidence():
         "page": 4,
         "text": (
             "4.1 Direito de Arrependimento (Compras Online). O cliente pode solicitar "
-            "a devolução em até 7 (sete) dias corridos após o recebimento do produto. "
+            "a devolução em até 7 (sete) dias corridos após o recebimento do produto, "
+            "sem necessidade de justificativa. "
             "O produto deve estar em sua embalagem original, sem sinais de uso, com "
             "todos os acessórios e manuais. O reembolso será realizado na mesma "
             "forma de pagamento original em até 10 dias úteis. O frete de devolução "
@@ -202,7 +203,8 @@ def test_return_policy_answer_excludes_preference_exchange_claims():
         "page": 4,
         "text": (
             "4.1 Direito de Arrependimento (Compras Online). O cliente pode solicitar "
-            "a devolução em até 7 (sete) dias corridos após o recebimento do produto. "
+            "a devolução em até 7 (sete) dias corridos após o recebimento do produto, "
+            "sem necessidade de justificativa. "
             "O produto deve estar em sua embalagem original, sem sinais de uso, com "
             "todos os acessórios e manuais. O reembolso será realizado na mesma "
             "forma de pagamento original em até 10 dias úteis. O frete de devolução "

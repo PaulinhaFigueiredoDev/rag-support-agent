@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from loja_exemplo_assistant.rag import ingestion, retriever
-from loja_exemplo_assistant.policy import _return_policy_summary
+from loja_exemplo_assistant.policy import online_return_summary
 
 
 def test_demo_pdf_supports_return_policy():
@@ -16,7 +16,7 @@ def test_demo_pdf_supports_return_policy():
 
     assert len(pages) == 8
     page_four = next(item for item in pages if item["page"] == 4)
-    assert _return_policy_summary([page_four], confirmed_online=True) is not None
+    assert online_return_summary([page_four], confirmed_online=True) is not None
 
 
 def test_extract_pages_skips_empty_pages(monkeypatch, tmp_path):

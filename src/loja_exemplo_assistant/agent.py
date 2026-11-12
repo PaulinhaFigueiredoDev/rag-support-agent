@@ -1,14 +1,13 @@
 """Orquestra um turno de atendimento com o modelo local."""
 
 from loja_exemplo_assistant.policy import (
-    FALLBACK,
-    PURCHASE_QUESTION,
     finalize_policy_answer,
     is_policy_request,
-    resolve_return,
 )
+from loja_exemplo_assistant.prompts import FALLBACK, PURCHASE_QUESTION
 from loja_exemplo_assistant.providers import ollama_provider
 from loja_exemplo_assistant.providers.ollama_provider import ToolCall
+from loja_exemplo_assistant.return_dialogue import resolve_return, session_from_messages
 from loja_exemplo_assistant.session import Session
 from loja_exemplo_assistant.tools.registry import TOOL_REGISTRY, TOOL_SCHEMAS, execute_tool
 
@@ -98,4 +97,4 @@ def run_turn(session: Session, user_text: str) -> str:
 
 def run_ollama_turn(messages: list[dict], user_text: str) -> str:
     """Compatibilidade com a API anterior baseada em uma lista de mensagens."""
-    return run_turn(Session.from_messages(messages), user_text)
+    return run_turn(session_from_messages(messages), user_text)

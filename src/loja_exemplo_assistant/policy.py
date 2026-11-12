@@ -2,85 +2,62 @@
 
 import re
 import unicodedata
-from dataclasses import dataclass
 
-from loja_exemplo_assistant.session import Session
-from loja_exemplo_assistant.tools.registry import execute_tool
-
-FALLBACK = "Não consegui concluir a consulta. Posso ajudar com outra pergunta?"
-PURCHASE_QUESTION = "A compra foi online ou presencial?"
-
-
-@dataclass(frozen=True)
-class ReturnResolution:
-    answer: str
-    evidence: list[dict] | None = None
-    lookup_question: str | None = None
+from loja_exemplo_assistant.prompts import FALLBACK
 
 
 def is_policy_request(text: str) -> bool:
-    normalized = _normalize(text)
+    normalized = normalize_text(text)
     return bool(re.search(r"\b(politica|troca|devolucao|arrependimento|garantia)\b", normalized))
 
 
-def _normalize(text: str) -> str:
+def normalize_text(text: str) -> str:
     normalized = unicodedata.normalize("NFKD", text.casefold())
     return "".join(character for character in normalized if not unicodedata.combining(character))
 
 
 def _simple_return_request(question: str) -> bool:
-    normalized = _normalize(question)
+    normalized = normalize_text(question)
     return bool(re.search(r"\b(devolver|devolucao|arrependimento)\b", normalized)) and not bool(
         re.search(r"\b(defeito|troca|garantia|presencial)\b|loja fisica", normalized)
     )
 
 
-def is_return_intent(question: str) -> bool:
-    normalized = _normalize(question)
-    return bool(re.search(r"\b(devolver|devolucao|arrependimento)\b", normalized)) and not bool(
-        re.search(r"\b(defeito|troca|garantia)\b", normalized)
-    )
-
-
-def _purchase_channel(text: str) -> str | None:
-    normalized = _normalize(text)
-    negated_online = any(phrase in normalized for phrase in (
-        "nao foi online", "nao for online", "nao e online", "nao comprei online",
-    ))
-    in_store = "presencial" in normalized or "loja fisica" in normalized or negated_online
-    online = ("online" in normalized and not negated_online) or "pela internet" in normalized
-    if in_store and online:
-        return None
-    if in_store:
-        return "presencial"
-    if online:
-        return "online"
-    return None
-
-
 def _policy_page(evidence: list[dict]) -> int | None:
-    heading = "4.1 direito de arrependimento (compras online)"
     return next(
-        (item["page"] for item in evidence if heading in _normalize(" ".join(item["text"].split()))),
+        (
+            item["page"] for item in evidence
+            if re.search(
+                r"\b4\.1\s+direito de arrependimento\s*\(\s*compras online\s*\)",
+                normalize_text(item["text"]),
+            )
+        ),
         None,
     )
 
 
-def _return_policy_summary(evidence: list[dict], confirmed_online: bool = False) -> str | None:
+def _has_required_return_facts(source: str) -> bool:
+    """Confere os fatos usados no resumo, aceitando pequenas variações de redação."""
+    patterns = (
+        r"\b7\s*(?:\(\s*sete\s*\)\s*)?dias? corridos?\b.{0,70}"
+        r"(?:apos o|a partir do) recebimento\b",
+        r"\b(?:sem (?:necessidade de )?justificativa|nao precisa de justificativa)\b",
+        r"\bembalagem original\b.{0,70}\bsem sinais de uso\b",
+        r"\bacessorios\b.{0,40}\bmanuais\b",
+        r"\bmesma forma de pagamento original\b.{0,90}\b10 dias uteis\b",
+        r"\bfrete de devolucao\b.{0,90}\b(?:por conta da loja|pago pela loja)\b",
+    )
+    return all(re.search(pattern, source) for pattern in patterns)
+
+
+def online_return_summary(evidence: list[dict], confirmed_online: bool = False) -> str | None:
     relevant_page = _policy_page(evidence)
     if relevant_page is None:
         return None
-    source = _normalize(" ".join(
+    source = normalize_text(" ".join(
         " ".join(item["text"].split()) for item in evidence if item["page"] == relevant_page
     ))
-    required_facts = (
-        "7 (sete) dias corridos apos o recebimento",
-        "embalagem original, sem sinais de uso",
-        "acessorios e manuais",
-        "mesma forma de pagamento original em ate 10 dias uteis",
-        "frete de devolucao e por conta da loja em caso de arrependimento",
-    )
-    if not all(fact in source for fact in required_facts):
+    if not _has_required_return_facts(source):
         return None
     opening = "Como a compra foi online, " if confirmed_online else "Se a compra do produto foi online, "
     return (
@@ -96,7 +73,7 @@ def _return_policy_summary(evidence: list[dict], confirmed_online: bool = False)
     )
 
 
-def _in_store_return_summary(evidence: list[dict]) -> str | None:
+def in_store_return_summary(evidence: list[dict]) -> str | None:
     page = _policy_page(evidence)
     if page is None:
         return None
@@ -113,9 +90,9 @@ def finalize_policy_answer(answer: str, evidence: list[dict], question: str = ""
     if not evidence or answer == FALLBACK:
         return answer
     if _simple_return_request(question):
-        return _return_policy_summary(evidence) or FALLBACK
-    source_text = _normalize(" ".join(item["text"] for item in evidence))
-    normalized_answer = _normalize(answer)
+        return online_return_summary(evidence) or FALLBACK
+    source_text = normalize_text(" ".join(item["text"] for item in evidence))
+    normalized_answer = normalize_text(answer)
     if (
         "direito de arrependimento (compras online)" in source_text
         and re.search(r"\b7\s*(?:\([^)]*\)\s*)?dias?\b", normalized_answer)
@@ -125,26 +102,3 @@ def finalize_policy_answer(answer: str, evidence: list[dict], question: str = ""
     if not re.search(r"\bpagina\b|\bp\.\s*\d+", normalized_answer):
         answer += f"\n\nFonte: Manual de Políticas, página {evidence[0]['page']}."
     return answer
-
-
-def resolve_return(session: Session, user_text: str) -> ReturnResolution | None:
-    """Resolve o diálogo de devolução sem depender de um modelo."""
-    previous_question = session.pending_return_question
-    if previous_question is None and not is_return_intent(user_text):
-        return None
-
-    channel = _purchase_channel(user_text)
-    if channel is None:
-        session.pending_return_question = previous_question or user_text
-        return ReturnResolution(PURCHASE_QUESTION)
-
-    session.pending_return_question = None
-    lookup_question = previous_question or user_text
-    evidence = execute_tool("consult_policy", {"question": lookup_question})
-    if not isinstance(evidence, list) or not evidence:
-        return ReturnResolution(FALLBACK)
-    if channel == "online":
-        answer = _return_policy_summary(evidence, confirmed_online=True) or FALLBACK
-    else:
-        answer = _in_store_return_summary(evidence) or FALLBACK
-    return ReturnResolution(answer, evidence, lookup_question)

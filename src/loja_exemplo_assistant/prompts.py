@@ -1,3 +1,7 @@
+FALLBACK = "Não consegui concluir a consulta. Posso ajudar com outra pergunta?"
+PURCHASE_QUESTION = "A compra foi online ou presencial?"
+
+
 SYSTEM_PROMPT = """Você é o assistente da Loja Exemplo.
 Responda em português brasileiro de forma cordial, clara e profissional.
 Consulte ferramentas antes de informar preços, disponibilidade, promoções ou pedidos.
