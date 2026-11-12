@@ -1,11 +1,18 @@
 """Comunicação e formato de mensagens do Ollama."""
 
 import json
+from dataclasses import dataclass
 
-from ollama import chat
+from httpx import RequestError as HttpRequestError
+from ollama import Client, RequestError, ResponseError
 
 from loja_exemplo_assistant.config import get_chat_model
-from dataclasses import dataclass
+
+chat = Client(timeout=120).chat
+
+
+class ModelUnavailableError(Exception):
+    """O modelo local não respondeu de forma utilizável."""
 
 
 @dataclass(frozen=True)
@@ -31,18 +38,30 @@ def ask_ollama(prompt: str) -> str:
 
 
 def complete(messages: list[dict], schemas: list[dict]) -> ModelResponse:
-    response = chat(
-        model=get_chat_model(),
-        messages=messages,
-        tools=schemas,
-        options={"num_ctx": 4096, "temperature": 0},
-    )
-    message = response.message
-    return ModelResponse(
-        content=message.content,
-        calls=[ToolCall(call.function.name, call.function.arguments) for call in (message.tool_calls or [])],
-        assistant_message=message.model_dump(exclude_none=True),
-    )
+    try:
+        response = chat(
+            model=get_chat_model(),
+            messages=messages,
+            tools=schemas,
+            options={"num_ctx": 4096, "temperature": 0},
+        )
+        message = response.message
+        calls = [
+            ToolCall(call.function.name, call.function.arguments)
+            for call in (message.tool_calls or [])
+        ]
+        if not isinstance(message.content, (str, type(None))) or not all(
+            isinstance(call.name, str) and call.name and isinstance(call.arguments, (dict, str))
+            for call in calls
+        ):
+            raise ValueError("Resposta do modelo inválida")
+        assistant_message = message.model_dump(exclude_none=True)
+        if not isinstance(assistant_message, dict):
+            raise ValueError("Mensagem do modelo inválida")
+        return ModelResponse(message.content, calls, assistant_message)
+    except (ConnectionError, HttpRequestError, RequestError, ResponseError,
+            AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise ModelUnavailableError from exc
 
 
 def forced_call_message(call: ToolCall) -> dict:

@@ -1,4 +1,8 @@
 FALLBACK = "Não consegui concluir a consulta. Posso ajudar com outra pergunta?"
+MODEL_UNAVAILABLE = (
+    "Não consegui obter uma resposta do modelo local agora. Verifique se o Ollama "
+    "está em execução e se o modelo configurado está instalado; depois tente novamente."
+)
 PURCHASE_QUESTION = "A compra foi online ou presencial?"
 
 

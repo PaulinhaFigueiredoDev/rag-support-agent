@@ -1,4 +1,5 @@
 import builtins
+from types import SimpleNamespace
 
 import main
 from loja_exemplo_assistant.providers import ollama_provider
@@ -30,6 +31,28 @@ def test_main_handles_eof(monkeypatch, capsys):
     monkeypatch.setattr(builtins, "input", lambda prompt: (_ for _ in ()).throw(EOFError))
     main.main()
     assert "Atendimento encerrado." in capsys.readouterr().out
+
+
+def test_main_continues_after_ollama_connection_failure(monkeypatch, capsys):
+    questions = iter(["Olá", "Você está aí?", "sair"])
+    monkeypatch.setattr(builtins, "input", lambda prompt: next(questions))
+    histories = []
+
+    def fake_chat(**kwargs):
+        histories.append([item.copy() for item in kwargs["messages"]])
+        if len(histories) == 1:
+            raise ConnectionError("Ollama indisponível")
+        message = SimpleNamespace(content="Sim, posso ajudar.", tool_calls=[])
+        message.model_dump = lambda **kwargs: {"role": "assistant", "content": message.content}
+        return SimpleNamespace(message=message)
+
+    monkeypatch.setattr(ollama_provider, "chat", fake_chat)
+    main.main()
+
+    output = capsys.readouterr().out
+    assert "Verifique se o Ollama está em execução" in output
+    assert "Sim, posso ajudar." in output
+    assert [item["role"] for item in histories[1]] == ["system", "user", "assistant", "user"]
 
 
 def test_main_completes_return_dialogue_with_session(monkeypatch, capsys):
