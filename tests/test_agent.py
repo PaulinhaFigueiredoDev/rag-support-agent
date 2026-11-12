@@ -1,7 +1,9 @@
 import json
 from types import SimpleNamespace
 
+import httpx
 import pytest
+from ollama import ResponseError
 
 from loja_exemplo_assistant import agent
 from loja_exemplo_assistant.providers import ollama_provider
@@ -89,6 +91,45 @@ def test_ollama_stops_before_executing_calls_over_budget(monkeypatch):
     messages = []
 
     assert agent.run_ollama_turn(messages, "Produtos") == agent.FALLBACK
+    assert [item["role"] for item in messages] == ["user", "assistant"]
+
+
+@pytest.mark.parametrize("failure", [
+    ConnectionError("Ollama indisponível"),
+    httpx.ReadTimeout("Tempo esgotado"),
+    ResponseError("Modelo não encontrado", status_code=404),
+])
+def test_ollama_failures_return_useful_answer_and_keep_history(monkeypatch, failure):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: (_ for _ in ()).throw(failure))
+    messages = []
+
+    answer = agent.run_ollama_turn(messages, "Olá")
+
+    assert answer == agent.MODEL_UNAVAILABLE
+    assert "Ollama" in answer
+    assert messages == [
+        {"role": "user", "content": "Olá"},
+        {"role": "assistant", "content": answer},
+    ]
+
+
+def test_malformed_ollama_response_returns_useful_answer(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(message=None))
+
+    assert agent.run_ollama_turn([], "Olá") == agent.MODEL_UNAVAILABLE
+
+
+@pytest.mark.parametrize("failure", [
+    httpx.ReadTimeout("Embedding demorou demais"),
+    ResponseError("Modelo de embedding ausente", status_code=404),
+])
+def test_policy_embedding_failure_does_not_interrupt_return_dialogue(monkeypatch, failure):
+    monkeypatch.setitem(agent.TOOL_REGISTRY, "consult_policy", lambda question: (
+        _ for _ in ()
+    ).throw(failure))
+    messages = []
+
+    assert agent.run_ollama_turn(messages, "Quero devolver uma compra online") == agent.FALLBACK
     assert [item["role"] for item in messages] == ["user", "assistant"]
 
 

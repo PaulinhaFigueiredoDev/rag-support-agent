@@ -3,6 +3,9 @@
 import json
 import math
 
+from httpx import RequestError as HttpRequestError
+from ollama import RequestError, ResponseError
+
 from loja_exemplo_assistant.tools.orders import get_order
 from loja_exemplo_assistant.tools.products import search_products
 from loja_exemplo_assistant.tools.promotions import get_product_price
@@ -126,5 +129,6 @@ def execute_tool(name: str, arguments: object) -> dict | list[dict]:
         return {"error": "Argumentos inválidos"}
     try:
         return function(**validated)
-    except (TypeError, ValueError, FileNotFoundError, ConnectionError):
+    except (TypeError, ValueError, FileNotFoundError, ConnectionError,
+            HttpRequestError, RequestError, ResponseError):
         return {"error": "Consulta indisponível"}

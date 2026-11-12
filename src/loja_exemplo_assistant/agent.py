@@ -4,9 +4,9 @@ from loja_exemplo_assistant.policy import (
     finalize_policy_answer,
     is_policy_request,
 )
-from loja_exemplo_assistant.prompts import FALLBACK, PURCHASE_QUESTION
+from loja_exemplo_assistant.prompts import FALLBACK, MODEL_UNAVAILABLE, PURCHASE_QUESTION
 from loja_exemplo_assistant.providers import ollama_provider
-from loja_exemplo_assistant.providers.ollama_provider import ToolCall
+from loja_exemplo_assistant.providers.ollama_provider import ModelUnavailableError, ToolCall
 from loja_exemplo_assistant.return_dialogue import resolve_return, session_from_messages
 from loja_exemplo_assistant.session import Session
 from loja_exemplo_assistant.tools.registry import TOOL_REGISTRY, TOOL_SCHEMAS, execute_tool
@@ -55,7 +55,11 @@ def run_turn(session: Session, user_text: str) -> str:
     policy_evidence: list[dict] = []
 
     while True:
-        response = ollama_provider.complete(session.messages, TOOL_SCHEMAS)
+        try:
+            response = ollama_provider.complete(session.messages, TOOL_SCHEMAS)
+        except ModelUnavailableError:
+            session.add_assistant(MODEL_UNAVAILABLE)
+            return MODEL_UNAVAILABLE
         if not response.calls:
             required = _required_tool(user_text, used_tools)
             if required and calls_used < MAX_TOOL_CALLS:
