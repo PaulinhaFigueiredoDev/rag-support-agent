@@ -3,7 +3,9 @@ from pathlib import Path
 
 import faiss
 import numpy as np
-from ollama import embed
+from ollama import Client
+
+embed = Client(timeout=120).embed
 
 ROOT = Path(__file__).resolve().parents[3]
 INDEX_DIR = ROOT / "storage" / "faiss"
