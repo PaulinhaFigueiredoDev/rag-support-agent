@@ -67,6 +67,6 @@ def tool_result_message(call: ToolCall, result: object) -> dict:
 def run_ollama_turn(messages: list[dict], user_text: str) -> str:
     """Compatibilidade com a API anterior baseada em uma lista de mensagens."""
     from loja_exemplo_assistant.agent import run_turn
-    from loja_exemplo_assistant.session import Session
+    from loja_exemplo_assistant.return_dialogue import session_from_messages
 
-    return run_turn(Session.from_messages(messages), user_text)
+    return run_turn(session_from_messages(messages), user_text)
