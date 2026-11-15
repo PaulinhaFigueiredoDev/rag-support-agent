@@ -4,7 +4,9 @@ from loja_exemplo_assistant.policy import (
     finalize_policy_answer,
     is_policy_request,
 )
-from loja_exemplo_assistant.prompts import FALLBACK, MODEL_UNAVAILABLE, PURCHASE_QUESTION
+from loja_exemplo_assistant.prompts import (
+    FALLBACK, MODEL_UNAVAILABLE, POLICY_NOT_FOUND, PURCHASE_QUESTION,
+)
 from loja_exemplo_assistant.providers import ollama_provider
 from loja_exemplo_assistant.providers.ollama_provider import ModelUnavailableError, ToolCall
 from loja_exemplo_assistant.return_dialogue import resolve_return, session_from_messages
@@ -53,6 +55,8 @@ def run_turn(session: Session, user_text: str) -> str:
     calls_used = 0
     used_tools: set[str] = set()
     policy_evidence: list[dict] = []
+    policy_lookup_empty = False
+    policy_lookup_failed = False
 
     while True:
         try:
@@ -66,8 +70,9 @@ def run_turn(session: Session, user_text: str) -> str:
                 name, arguments = required
                 result = execute_tool(name, arguments)
                 if not _successful_result(name, result):
-                    session.add_assistant(FALLBACK)
-                    return FALLBACK
+                    answer = POLICY_NOT_FOUND if name == "consult_policy" and result == [] else FALLBACK
+                    session.add_assistant(answer)
+                    return answer
                 call = ToolCall(name, arguments)
                 session.messages.append(ollama_provider.forced_call_message(call))
                 session.messages.append(ollama_provider.tool_result_message(call, result))
@@ -78,8 +83,8 @@ def run_turn(session: Session, user_text: str) -> str:
                 continue
 
             answer = response.content or FALLBACK
-            if is_policy_request(user_text) and not policy_evidence:
-                answer = FALLBACK
+            if not policy_evidence and (is_policy_request(user_text) or policy_lookup_empty or policy_lookup_failed):
+                answer = POLICY_NOT_FOUND if policy_lookup_empty else FALLBACK
             answer = finalize_policy_answer(answer, policy_evidence, user_text)
             session.add_assistant(answer)
             return answer
@@ -95,6 +100,9 @@ def run_turn(session: Session, user_text: str) -> str:
                 used_tools.add(call.name)
                 if call.name == "consult_policy":
                     policy_evidence = result
+            elif call.name == "consult_policy":
+                policy_lookup_empty = policy_lookup_empty or result == []
+                policy_lookup_failed = policy_lookup_failed or result != []
             session.messages.append(ollama_provider.tool_result_message(call, result))
         calls_used += len(response.calls)
 
