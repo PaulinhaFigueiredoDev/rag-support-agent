@@ -8,7 +8,7 @@ from loja_exemplo_assistant.policy import (
     normalize_text,
     online_return_summary,
 )
-from loja_exemplo_assistant.prompts import FALLBACK, PURCHASE_QUESTION
+from loja_exemplo_assistant.prompts import FALLBACK, POLICY_NOT_FOUND, PURCHASE_QUESTION
 from loja_exemplo_assistant.session import Session
 from loja_exemplo_assistant.tools.registry import execute_tool
 
@@ -69,6 +69,8 @@ def resolve_return(session: Session, user_text: str) -> ReturnResolution | None:
     session.pending_return_question = None
     lookup_question = previous_question or user_text
     evidence = execute_tool("consult_policy", {"question": lookup_question})
+    if evidence == []:
+        return ReturnResolution(POLICY_NOT_FOUND)
     if not isinstance(evidence, list) or not evidence:
         return ReturnResolution(FALLBACK)
     if channel == "online":

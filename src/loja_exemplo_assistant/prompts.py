@@ -1,4 +1,8 @@
 FALLBACK = "Não consegui concluir a consulta. Posso ajudar com outra pergunta?"
+POLICY_NOT_FOUND = (
+    "Não encontrei no manual uma regra que responda com segurança a essa pergunta. "
+    "Recomendo confirmar com o atendimento humano."
+)
 MODEL_UNAVAILABLE = (
     "Não consegui obter uma resposta do modelo local agora. Verifique se o Ollama "
     "está em execução e se o modelo configurado está instalado; depois tente novamente."

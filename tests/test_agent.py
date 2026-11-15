@@ -181,6 +181,34 @@ def test_ollama_policy_request_fails_closed_if_index_is_unavailable(monkeypatch)
     assert [item["role"] for item in messages] == ["user", "assistant"]
 
 
+def test_policy_request_without_relevant_evidence_reports_not_found(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="A loja aceita animais.")
+    ))
+    monkeypatch.setitem(agent.TOOL_REGISTRY, "consult_policy", lambda question: [])
+
+    answer = agent.run_ollama_turn([], "Qual a política para animais na loja?")
+
+    assert answer == agent.POLICY_NOT_FOUND
+
+
+def test_model_cannot_answer_after_empty_policy_tool_result(monkeypatch):
+    replies = [
+        ollama_message(calls=[ollama_call("consult_policy", {"question": "Política para animais"})]),
+        ollama_message(content="A loja aceita animais."),
+    ]
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(message=replies.pop(0)))
+    monkeypatch.setitem(agent.TOOL_REGISTRY, "consult_policy", lambda question: [])
+
+    assert agent.run_ollama_turn([], "Vocês aceitam animais?") == agent.POLICY_NOT_FOUND
+
+
+def test_return_dialogue_reports_when_policy_evidence_is_missing(monkeypatch):
+    monkeypatch.setitem(agent.TOOL_REGISTRY, "consult_policy", lambda question: [])
+
+    assert agent.run_ollama_turn([], "Quero devolver uma compra online") == agent.POLICY_NOT_FOUND
+
+
 def test_return_dialogue_asks_purchase_channel_then_uses_session_history(monkeypatch):
     monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: (_ for _ in ()).throw(
         AssertionError("A resposta deve ser orientada pelo fluxo local")
