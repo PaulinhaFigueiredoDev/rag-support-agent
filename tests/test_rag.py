@@ -75,6 +75,36 @@ def test_retriever_returns_most_similar_chunk_with_page(tmp_path, monkeypatch):
     assert results == [{"page": 4, "text": "Devolução", "score": 1.0}]
 
 
+def test_retriever_rejects_high_scoring_off_topic_chunk(tmp_path, monkeypatch):
+    chunks = [{"page": 2, "text": "A loja vende instrumentos musicais."}]
+    index = faiss.IndexFlatIP(2)
+    index.add(np.array([[1, 0]], dtype="float32"))
+    faiss.write_index(index, str(tmp_path / "index.faiss"))
+    (tmp_path / "chunks.json").write_text(json.dumps(chunks), encoding="utf-8")
+    (tmp_path / "metadata.json").write_text(json.dumps({
+        "embedding_model": "embeddinggemma", "dimension": 2, "count": 1,
+    }), encoding="utf-8")
+    monkeypatch.setattr(retriever, "INDEX_DIR", tmp_path)
+    monkeypatch.setattr(retriever, "embed", lambda **kwargs: SimpleNamespace(embeddings=[[1, 0]]))
+
+    assert retriever.retrieve_policy("Qual a política para animais na loja?") == []
+
+
+def test_retriever_rejects_low_scoring_chunk_even_with_matching_words(tmp_path, monkeypatch):
+    chunks = [{"page": 4, "text": "Política de troca e devolução."}]
+    index = faiss.IndexFlatIP(2)
+    index.add(np.array([[0, 1]], dtype="float32"))
+    faiss.write_index(index, str(tmp_path / "index.faiss"))
+    (tmp_path / "chunks.json").write_text(json.dumps(chunks), encoding="utf-8")
+    (tmp_path / "metadata.json").write_text(json.dumps({
+        "embedding_model": "embeddinggemma", "dimension": 2, "count": 1,
+    }), encoding="utf-8")
+    monkeypatch.setattr(retriever, "INDEX_DIR", tmp_path)
+    monkeypatch.setattr(retriever, "embed", lambda **kwargs: SimpleNamespace(embeddings=[[1, 0]]))
+
+    assert retriever.retrieve_policy("Qual a política de troca?") == []
+
+
 def test_retriever_rejects_stale_metadata(tmp_path, monkeypatch):
     (tmp_path / "metadata.json").write_text(
         json.dumps({"embedding_model": "outro-modelo", "dimension": 2, "count": 1}),
