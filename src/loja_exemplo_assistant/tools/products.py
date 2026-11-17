@@ -5,6 +5,7 @@ def search_products(
     category: str | None = None,
     max_price: float | None = None,
     limit: int = 5,
+    product_id: int | None = None,
 ) -> list[dict]:
 
     # Valida os parâmetros recebidos
@@ -13,6 +14,8 @@ def search_products(
 
     if max_price is not None and max_price < 0:
         raise ValueError("max_price deve ser não negativo")
+    if product_id is not None and product_id < 1:
+        raise ValueError("product_id deve ser positivo")
 
     # Carrega as tabelas da Etapa 2
     products = load_table("products")
@@ -32,6 +35,8 @@ def search_products(
         (table["status"] == "active") &
         (table["stock_quantity"] > 0)
     ]
+    if product_id is not None:
+        table = table.loc[table["product_id"] == product_id]
 
     # Filtra pela categoria, quando informada
     if category:

@@ -62,8 +62,9 @@ def test_registry_and_argument_validation_reject_untrusted_calls():
 
 def test_ollama_product_call_returns_csv_data_and_preserves_history(monkeypatch):
     replies = [
-        ollama_message(calls=[ollama_call("search_products", {"limit": 1})]),
-        ollama_message(content="Encontrei um produto."),
+        ollama_message(content="O produto custa R$ 1,00.", calls=[
+            ollama_call("search_products", {"limit": 1})
+        ]),
     ]
     calls = []
 
@@ -74,14 +75,17 @@ def test_ollama_product_call_returns_csv_data_and_preserves_history(monkeypatch)
     monkeypatch.setattr(ollama_provider, "chat", fake_chat)
     messages = [{"role": "system", "content": "instruções"}]
 
-    assert agent.run_ollama_turn(messages, "Mostre um produto") == "Encontrei um produto."
+    answer = agent.run_ollama_turn(messages, "Mostre um produto")
+    assert "Produtos disponíveis:" in answer
+    assert "R$ 1,00" not in answer
     assert [item["role"] for item in messages] == [
         "system", "user", "assistant", "tool", "assistant"
     ]
     result = json.loads(messages[3]["content"])
     assert len(result) == 1
     assert set(result[0]) == {"product_id", "name", "price_brl", "stock_quantity"}
-    assert calls[1]["messages"][3]["tool_name"] == "search_products"
+    assert len(calls) == 1
+    assert str(result[0]["name"]) in answer
 
 
 def test_ollama_stops_before_executing_calls_over_budget(monkeypatch):
@@ -134,20 +138,274 @@ def test_policy_embedding_failure_does_not_interrupt_return_dialogue(monkeypatch
 
 
 def test_ollama_generic_product_request_recovers_when_model_skips_tool(monkeypatch):
-    replies = [
-        ollama_message(content="Preciso do ID."),
-        ollama_message(content="Encontrei produtos disponíveis."),
-    ]
+    replies = [ollama_message(content="Preciso do ID.")]
     monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(message=replies.pop(0)))
     messages = []
 
-    assert agent.run_ollama_turn(messages, "Mostre um produto disponível com preço") == (
-        "Encontrei produtos disponíveis."
-    )
+    answer = agent.run_ollama_turn(messages, "Mostre um produto disponível com preço")
+    assert "Produtos disponíveis:" in answer
+    assert "R$" in answer
+    assert "Preciso do ID" not in answer
     assert [item["role"] for item in messages] == ["user", "assistant", "tool", "assistant"]
     assert json.loads(messages[2]["content"])
-    assert not agent._is_generic_product_request("Mostre produtos até R$ 100")
-    assert not agent._is_generic_product_request("Mostre produtos de cordas")
+
+
+def test_price_request_uses_csv_even_when_model_invents_value(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="O produto custa R$ 1,00.")
+    ))
+    messages = []
+
+    answer = agent.run_ollama_turn(messages, "Qual o preço do produto 81?")
+
+    assert "R$ 599,90" in answer
+    assert "R$ 1,00" not in answer
+    assert messages[2]["tool_name"] == "get_product_price"
+
+
+def test_price_request_asks_for_id_and_keeps_pix_context(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="O preço é R$ 1,00.")
+    ))
+    messages = []
+
+    assert agent.run_ollama_turn(messages, "Quanto custa no Pix?") == (
+        "Para consultar o preço, informe o ID do produto."
+    )
+    answer = agent.run_ollama_turn(messages, "81")
+
+    assert "desconto de 5%" in answer
+    assert "R$ 569,91" in answer
+
+
+def test_order_request_requires_customer_email_and_uses_csv(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="O pedido foi cancelado.")
+    ))
+    messages = []
+
+    assert agent.run_ollama_turn(messages, "Qual o status do pedido 1?") == (
+        "Para consultar o pedido, informe o número e o e-mail usado na compra."
+    )
+    assert all(item["role"] != "tool" for item in messages)
+
+    answer = agent.run_ollama_turn(messages, "pedro.oliveira@jmail.com")
+
+    assert "Pedido 1: status entregue" in answer
+    assert "BRAB1234567BR" in answer
+    assert "cancelado" not in answer
+    assert "pedro.oliveira@jmail.com" not in answer
+
+
+def test_model_cannot_query_order_with_invented_email(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(calls=[ollama_call("get_order", {
+            "order_id": 1, "email": "pedro.oliveira@jmail.com",
+        })])
+    ))
+    messages = []
+
+    assert agent.run_ollama_turn(messages, "Qual o status do pedido 1?") == (
+        "Para consultar o pedido, informe o número e o e-mail usado na compra."
+    )
+    assert all(item["role"] != "tool" for item in messages)
+
+
+def test_stock_request_for_id_uses_matching_product_only(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="Há 900 unidades disponíveis.")
+    ))
+    messages = []
+
+    answer = agent.run_ollama_turn(messages, "O produto 81 está disponível em estoque?")
+
+    assert "Yamaha C40" in answer
+    assert "12 em estoque" in answer
+    assert "900" not in answer
+    result = json.loads(messages[2]["content"])
+    assert [item["product_id"] for item in result] == [81]
+
+
+def test_stock_followup_uses_last_quoted_product(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="Não há estoque.")
+    ))
+    messages = []
+
+    assert "Produto 81" in agent.run_ollama_turn(messages, "Qual o preço do produto 81 no Pix?")
+    messages[-1]["content"] = "Preço consultado com sucesso."
+    answer = agent.run_ollama_turn(messages, "esta disponivel em estoque?")
+
+    assert "Yamaha C40" in answer
+    assert "12 em estoque" in answer
+    assert json.loads(messages[-2]["content"])[0]["product_id"] == 81
+
+
+def test_stock_followup_without_clear_product_asks_for_id(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="Há estoque.")
+    ))
+    messages = []
+
+    answer = agent.run_ollama_turn(messages, "esta disponivel em estoque?")
+
+    assert answer == "De qual produto você quer consultar o estoque? Informe o ID."
+    assert all(item["role"] != "tool" for item in messages)
+    answer = agent.run_ollama_turn(messages, "81")
+    assert "12 em estoque" in answer
+
+
+def test_stock_followup_after_multiple_products_asks_for_id(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="Há estoque.")
+    ))
+    messages = []
+
+    assert "Produtos disponíveis:" in agent.run_ollama_turn(messages, "Mostre produtos")
+    answer = agent.run_ollama_turn(messages, "Algum está disponível em estoque?")
+
+    assert answer == "De qual produto você quer consultar o estoque? Informe o ID."
+
+
+def test_stock_request_corrects_model_choice_of_price_tool(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(calls=[ollama_call("get_product_price", {"product_id": 81})])
+    ))
+    messages = []
+
+    answer = agent.run_ollama_turn(messages, "O produto 81 está disponível em estoque?")
+
+    assert "12 em estoque" in answer
+    assert messages[2]["tool_name"] == "search_products"
+
+
+def test_product_search_honors_category_and_price_limit(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="Todos os violões custam R$ 1,00.")
+    ))
+    messages = []
+
+    answer = agent.run_ollama_turn(messages, "Mostre violões até R$ 500")
+
+    result = json.loads(messages[2]["content"])
+    assert result
+    assert all(item["price_brl"] <= 500 for item in result)
+    assert all(item["name"] in answer for item in result)
+    assert "R$ 1,00" not in answer
+
+
+def test_model_product_id_cannot_replace_customer_requested_id(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(calls=[ollama_call("get_product_price", {"product_id": 82})])
+    ))
+    messages = []
+
+    answer = agent.run_ollama_turn(messages, "Qual o preço do produto 81?")
+
+    assert "Produto 81" in answer
+    assert "R$ 599,90" in answer
+    assert json.loads(messages[2]["content"])["original_price"] == "599.9"
+
+
+def test_pix_discount_does_not_leak_to_next_product(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="Preço inventado")
+    ))
+    messages = []
+
+    assert "desconto de 5%" in agent.run_ollama_turn(messages, "Preço do produto 81 no Pix?")
+    answer = agent.run_ollama_turn(messages, "Qual o preço do produto 82?")
+
+    assert "Produto 82" in answer
+    assert "desconto de 0%" in answer
+
+
+def test_new_topic_replaces_pending_order_question(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="Resposta inventada")
+    ))
+    messages = []
+
+    assert "informe o número" in agent.run_ollama_turn(messages, "Qual o status do pedido?")
+    answer = agent.run_ollama_turn(messages, "Mostre um produto")
+
+    assert "Produtos disponíveis:" in answer
+    assert "pedido" not in answer.casefold()
+
+
+def test_unavailable_product_data_does_not_return_model_claim(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="O produto custa R$ 1,00.")
+    ))
+    monkeypatch.setitem(agent.TOOL_REGISTRY, "get_product_price", lambda product_id, payment=None: (
+        _ for _ in ()
+    ).throw(FileNotFoundError("CSV ausente")))
+
+    assert agent.run_ollama_turn([], "Qual o preço do produto 81?") == agent.FALLBACK
+
+
+def test_delivery_policy_uses_current_question_without_prior_product_context(monkeypatch):
+    replies = [
+        ollama_message(content="R$ 1,00"),
+        ollama_message(content="Não sei o prazo para o produto 81."),
+        ollama_message(content="Na região metropolitana, o prazo é de 1 a 3 dias úteis."),
+    ]
+    requests = []
+
+    def fake_chat(**kwargs):
+        requests.append([item.copy() for item in kwargs["messages"]])
+        return SimpleNamespace(message=replies.pop(0))
+
+    monkeypatch.setattr(ollama_provider, "chat", fake_chat)
+    monkeypatch.setitem(agent.TOOL_REGISTRY, "consult_policy", lambda question: [
+        {"page": 4, "text": (
+            "5.1 Entregas na Região Metropolitana de Campo Grande. "
+            "Prazo de entrega: 1 a 3 dias úteis."
+        )}
+    ])
+    messages = [{"role": "system", "content": "instruções"}]
+
+    assert "Produto 81" in agent.run_ollama_turn(messages, "Qual o preço do produto 81 no Pix?")
+    answer = agent.run_ollama_turn(messages, "qual prazo para entrega?")
+
+    assert "1 a 3 dias úteis" in answer
+    assert "página 4" in answer
+    assert "produto 81" not in answer.casefold()
+    assert [item["role"] for item in requests[1]] == ["system", "user"]
+    assert [item["role"] for item in requests[2]] == ["system", "user", "assistant", "tool"]
+
+
+def test_order_delivery_status_still_uses_order_lookup(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: SimpleNamespace(
+        message=ollama_message(content="Entrega em 3 dias.")
+    ))
+    messages = []
+
+    answer = agent.run_ollama_turn(messages, "Qual o status de entrega do pedido 1 via SEDEX?")
+
+    assert "informe o número e o e-mail" in answer
+    assert all(item["role"] != "tool" for item in messages)
+
+
+def test_sedex_followup_uses_shipping_policy_without_model(monkeypatch):
+    monkeypatch.setattr(ollama_provider, "chat", lambda **kwargs: (_ for _ in ()).throw(
+        AssertionError("A modalidade deve usar o manual, sem nova resposta do modelo")
+    ))
+    monkeypatch.setitem(agent.TOOL_REGISTRY, "consult_policy", lambda question: [
+        {"page": 5, "text": (
+            "Envios para fora da região metropolitana de Campo Grande. "
+            "PAC (Correios) 5 a 12 dias úteis. SEDEX (Correios) 2 a 5 dias úteis. "
+            "Jadlog 3 a 8 dias úteis."
+        )}
+    ])
+    messages = []
+
+    answer = agent.run_ollama_turn(messages, "quero sedex")
+
+    assert "SEDEX: 2 a 5 dias úteis" in answer
+    assert "página 5" in answer
+    assert "região metropolitana de Campo Grande (Manual de Políticas, página 4" not in answer
+    assert messages[2]["tool_name"] == "consult_policy"
 
 
 def test_ollama_policy_request_recovers_when_model_skips_rag(monkeypatch):

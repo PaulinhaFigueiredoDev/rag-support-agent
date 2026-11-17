@@ -8,7 +8,7 @@ from loja_exemplo_assistant.prompts import FALLBACK
 
 def is_policy_request(text: str) -> bool:
     normalized = normalize_text(text)
-    return bool(re.search(r"\b(politica|troca|devolucao|arrependimento|garantia)\b", normalized))
+    return bool(re.search(r"\b(politica|troca|devolucao|arrependimento|garantia|frete|entrega|envio)\b", normalized))
 
 
 def normalize_text(text: str) -> str:
@@ -86,11 +86,91 @@ def in_store_return_summary(evidence: list[dict]) -> str | None:
     )
 
 
+def _delivery_time_request(question: str) -> bool:
+    normalized = normalize_text(question)
+    return bool(re.search(r"\b(prazo|demora|tempo)\b", normalized)) and bool(
+        re.search(r"\b(entrega|frete|envio)\b", normalized)
+    )
+
+
+def requested_shipping_modes(question: str) -> tuple[str, ...]:
+    normalized = normalize_text(question)
+    return tuple(
+        name for name in ("PAC", "SEDEX", "Jadlog")
+        if re.search(rf"\b{name.casefold()}\b", normalized)
+    )
+
+
+def _shipping_mode_times(source: str) -> dict[str, tuple[str, str]]:
+    if "fora da regiao metropolitana de campo grande" not in source:
+        return {}
+    times = {}
+    for name in ("PAC", "SEDEX", "Jadlog"):
+        match = re.search(
+            rf"\b{name}\b.{{0,30}}?(\d+)\s*a\s*(\d+)\s*dias uteis",
+            source,
+            re.IGNORECASE,
+        )
+        if match:
+            times[name] = match[1], match[2]
+    return times
+
+
+def shipping_mode_summary(evidence: list[dict], modes: tuple[str, ...]) -> str | None:
+    for item in evidence:
+        source = normalize_text(" ".join(item["text"].split()))
+        times = _shipping_mode_times(source)
+        if not modes or not all(name in times for name in modes):
+            continue
+        details = "; ".join(
+            f"{name}: {times[name][0]} a {times[name][1]} dias úteis" for name in modes
+        )
+        return (
+            "O manual lista estas modalidades para envios fora da região metropolitana "
+            f"de Campo Grande, com prazos estimados de {details}. "
+            "Posso informar os prazos, mas não selecionar o frete nem confirmar o valor "
+            "para seu endereço; consulte o atendimento para isso. "
+            f"Fonte: Manual de Políticas, página {item['page']}, seção 5.2."
+        )
+    return None
+
+
+def delivery_time_summary(evidence: list[dict]) -> str | None:
+    """Resume apenas os prazos que constam dos trechos recuperados."""
+    paragraphs = []
+    for item in evidence:
+        source = normalize_text(" ".join(item["text"].split()))
+        metro = re.search(
+            r"5\.1\s+entregas na regiao metropolitana de campo grande\b.{0,300}?"
+            r"prazo de entrega:\s*(\d+)\s*a\s*(\d+)\s*dias uteis",
+            source,
+        )
+        if metro:
+            paragraphs.append(
+                f"Na região metropolitana de Campo Grande, o prazo é de {metro[1]} a "
+                f"{metro[2]} dias úteis (Manual de Políticas, página {item['page']}, seção 5.1)."
+            )
+        times = _shipping_mode_times(source)
+        if len(times) == 3:
+            modes = [
+                f"{name}: {times[name][0]} a {times[name][1]} dias úteis"
+                for name in ("PAC", "SEDEX", "Jadlog")
+            ]
+            paragraphs.append(
+                "Para outras cidades, o prazo estimado depende da modalidade: "
+                + "; ".join(modes)
+                + f" (Manual de Políticas, página {item['page']}, seção 5.2)."
+            )
+    return " ".join(paragraphs) or None
+
+
 def finalize_policy_answer(answer: str, evidence: list[dict], question: str = "") -> str:
     if not evidence or answer == FALLBACK:
         return answer
     if _simple_return_request(question):
         return online_return_summary(evidence) or FALLBACK
+    if _delivery_time_request(question):
+        return delivery_time_summary(evidence) or FALLBACK
     source_text = normalize_text(" ".join(item["text"] for item in evidence))
     normalized_answer = normalize_text(answer)
     if (
