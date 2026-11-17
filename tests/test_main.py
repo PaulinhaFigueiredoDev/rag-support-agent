@@ -33,6 +33,17 @@ def test_main_handles_eof(monkeypatch, capsys):
     assert "Atendimento encerrado." in capsys.readouterr().out
 
 
+def test_main_reports_invalid_rag_configuration(monkeypatch, capsys):
+    monkeypatch.setenv("RAG_TOP_K", "0")
+    monkeypatch.setattr(builtins, "input", lambda prompt: (_ for _ in ()).throw(
+        AssertionError("A conversa não deve começar com configuração inválida")
+    ))
+
+    main.main()
+
+    assert "Configuração inválida: RAG_TOP_K deve ser um inteiro entre 1 e 5" in capsys.readouterr().out
+
+
 def test_main_continues_after_ollama_connection_failure(monkeypatch, capsys):
     questions = iter(["Olá", "Você está aí?", "sair"])
     monkeypatch.setattr(builtins, "input", lambda prompt: next(questions))
