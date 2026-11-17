@@ -1,8 +1,14 @@
 from loja_exemplo_assistant.agent import run_turn
+from loja_exemplo_assistant.config import get_rag_top_k
 from loja_exemplo_assistant.session import Session
 
 
 def main() -> None:
+    try:
+        get_rag_top_k()
+    except ValueError as exc:
+        print(f"Configuração inválida: {exc}")
+        return
     session = Session()
     print("Loja Exemplo Assist (Ollama). Digite 'sair' para encerrar.")
     while True:
