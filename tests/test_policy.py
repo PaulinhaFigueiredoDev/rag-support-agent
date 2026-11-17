@@ -1,4 +1,7 @@
-from loja_exemplo_assistant.policy import online_return_summary
+from loja_exemplo_assistant.policy import (
+    delivery_time_summary, finalize_policy_answer, online_return_summary,
+    requested_shipping_modes, shipping_mode_summary,
+)
 
 
 def test_return_summary_accepts_equivalent_wording_from_manual():
@@ -33,3 +36,47 @@ def test_return_summary_rejects_evidence_without_shipping_rule():
     }]
 
     assert online_return_summary(evidence) is None
+
+
+def test_delivery_answer_uses_each_verified_shipping_mode():
+    evidence = [
+        {"page": 4, "text": (
+            "5.1 Entregas na Região Metropolitana de Campo Grande. "
+            "Prazo de entrega: 1 a 3 dias úteis."
+        )},
+        {"page": 5, "text": (
+            "Envios para fora da região metropolitana de Campo Grande. "
+            "PAC (Correios) 5 a 12 dias úteis. SEDEX (Correios) 2 a 5 dias úteis. "
+            "Jadlog 3 a 8 dias úteis."
+        )},
+    ]
+
+    answer = finalize_policy_answer(
+        "Para outras cidades, sempre são 2 a 5 dias úteis para o produto 81.",
+        evidence,
+        "Qual prazo para entrega?",
+    )
+
+    assert answer == delivery_time_summary(evidence)
+    assert "1 a 3 dias úteis" in answer
+    assert "PAC: 5 a 12 dias úteis" in answer
+    assert "SEDEX: 2 a 5 dias úteis" in answer
+    assert "Jadlog: 3 a 8 dias úteis" in answer
+    assert "página 4" in answer and "página 5" in answer
+    assert "produto 81" not in answer
+
+
+def test_sedex_answer_is_limited_to_outside_metropolitan_area():
+    evidence = [{"page": 5, "text": (
+        "Envios para fora da região metropolitana de Campo Grande. "
+        "PAC (Correios) 5 a 12 dias úteis. SEDEX (Correios) 2 a 5 dias úteis. "
+        "Jadlog 3 a 8 dias úteis."
+    )}]
+
+    answer = shipping_mode_summary(evidence, requested_shipping_modes("quero sedex"))
+
+    assert "SEDEX: 2 a 5 dias úteis" in answer
+    assert "fora da região metropolitana" in answer
+    assert "página 5, seção 5.2" in answer
+    assert "não selecionar o frete" in answer
+    assert "PAC:" not in answer

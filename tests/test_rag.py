@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from loja_exemplo_assistant.rag import ingestion, retriever
-from loja_exemplo_assistant.policy import online_return_summary
+from loja_exemplo_assistant.policy import delivery_time_summary, online_return_summary
 
 
 def test_demo_pdf_supports_return_policy():
@@ -17,6 +17,10 @@ def test_demo_pdf_supports_return_policy():
     assert len(pages) == 8
     page_four = next(item for item in pages if item["page"] == 4)
     assert online_return_summary([page_four], confirmed_online=True) is not None
+    delivery = delivery_time_summary(pages)
+    assert "PAC: 5 a 12 dias úteis" in delivery
+    assert "SEDEX: 2 a 5 dias úteis" in delivery
+    assert "Jadlog: 3 a 8 dias úteis" in delivery
 
 
 def test_extract_pages_skips_empty_pages(monkeypatch, tmp_path):
