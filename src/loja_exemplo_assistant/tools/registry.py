@@ -39,6 +39,7 @@ TOOL_SCHEMAS = [
             "category": {"type": ["string", "null"]},
             "max_price": {"type": ["number", "null"]},
             "limit": {"type": "integer", "minimum": 1, "maximum": 20},
+            "product_id": {"type": ["integer", "null"]},
         },
         [],
     ),
@@ -86,7 +87,7 @@ def _validate_arguments(name: str, arguments: object) -> dict:
         raise ValueError("arguments")
 
     allowed = {
-        "search_products": {"category", "max_price", "limit"},
+        "search_products": {"category", "max_price", "limit", "product_id"},
         "get_order": {"order_id", "email"},
         "get_product_price": {"product_id", "payment"},
         "consult_policy": {"question"},
@@ -105,6 +106,8 @@ def _validate_arguments(name: str, arguments: object) -> dict:
             result["max_price"] = price
         if "limit" in arguments:
             result["limit"] = _positive_int(arguments["limit"], "limit", 20)
+        if arguments.get("product_id") is not None:
+            result["product_id"] = _positive_int(arguments["product_id"], "product_id")
         return result
     if name == "get_order":
         return {
