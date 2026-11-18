@@ -8,7 +8,3 @@ build/
 dist/
 storage/faiss/
 .DS_Store
-
-# Documentos locais
-data/documents/*.pdf
-!data/documents/politicas_demo.pdf
