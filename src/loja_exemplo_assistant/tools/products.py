@@ -1,6 +1,9 @@
+# Este módulo busca produtos nos CSVs e aplica filtros de disponibilidade e preço.
+
 from loja_exemplo_assistant.services.data_loader import load_table
 
 
+# Retorna produtos em estoque após validar e aplicar os filtros fornecidos.
 def search_products(
     category: str | None = None,
     max_price: float | None = None,

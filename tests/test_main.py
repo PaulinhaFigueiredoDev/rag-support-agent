@@ -1,3 +1,5 @@
+# Testes do ciclo de atendimento no terminal e do estado mantido pela sessão.
+
 import builtins
 from types import SimpleNamespace
 

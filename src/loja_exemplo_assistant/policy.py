@@ -6,24 +6,28 @@ import unicodedata
 from loja_exemplo_assistant.prompts import FALLBACK
 
 
+# Detecta termos que indicam uma pergunta sobre regras da loja.
 def is_policy_request(text: str) -> bool:
     normalized = normalize_text(text)
     return bool(re.search(r"\b(politica|troca|devolucao|arrependimento|garantia|frete|entrega|envio)\b", normalized))
 
 
 def normalize_text(text: str) -> str:
+    # A normalização permite comparar palavras com e sem acentos.
     normalized = unicodedata.normalize("NFKD", text.casefold())
     return "".join(character for character in normalized if not unicodedata.combining(character))
 
 
 def _simple_return_request(question: str) -> bool:
     normalized = normalize_text(question)
+    # Exclui defeitos, trocas e compras presenciais do fluxo de arrependimento online.
     return bool(re.search(r"\b(devolver|devolucao|arrependimento)\b", normalized)) and not bool(
         re.search(r"\b(defeito|troca|garantia|presencial)\b|loja fisica", normalized)
     )
 
 
 def _policy_page(evidence: list[dict]) -> int | None:
+    # Só seleciona a página com a seção específica de arrependimento online.
     return next(
         (
             item["page"] for item in evidence
@@ -38,6 +42,7 @@ def _policy_page(evidence: list[dict]) -> int | None:
 
 def _has_required_return_facts(source: str) -> bool:
     """Confere os fatos usados no resumo, aceitando pequenas variações de redação."""
+    # Exige todos os fatos antes de produzir um resumo fechado da regra.
     patterns = (
         r"\b7\s*(?:\(\s*sete\s*\)\s*)?dias? corridos?\b.{0,70}"
         r"(?:apos o|a partir do) recebimento\b",
@@ -51,6 +56,7 @@ def _has_required_return_facts(source: str) -> bool:
 
 
 def online_return_summary(evidence: list[dict], confirmed_online: bool = False) -> str | None:
+    # Valida seção, prazos, condições do produto, reembolso e custo do frete.
     relevant_page = _policy_page(evidence)
     if relevant_page is None:
         return None
@@ -59,6 +65,7 @@ def online_return_summary(evidence: list[dict], confirmed_online: bool = False) 
     ))
     if not _has_required_return_facts(source):
         return None
+    # A redação não presume compra online quando o canal ainda não foi confirmado.
     opening = "Como a compra foi online, " if confirmed_online else "Se a compra do produto foi online, "
     return (
         opening + "você pode solicitar a devolução por "
@@ -74,6 +81,7 @@ def online_return_summary(evidence: list[dict], confirmed_online: bool = False) 
 
 
 def in_store_return_summary(evidence: list[dict]) -> str | None:
+    # Explica o limite da seção consultada para compras presenciais.
     page = _policy_page(evidence)
     if page is None:
         return None
@@ -93,6 +101,7 @@ def _delivery_time_request(question: str) -> bool:
     )
 
 
+# Detecta perguntas que pedem prazo de entrega ou frete.
 def requested_shipping_modes(question: str) -> tuple[str, ...]:
     normalized = normalize_text(question)
     return tuple(
@@ -101,7 +110,9 @@ def requested_shipping_modes(question: str) -> tuple[str, ...]:
     )
 
 
+# Extrai as modalidades de envio citadas na pergunta.
 def _shipping_mode_times(source: str) -> dict[str, tuple[str, str]]:
+    # Aplica estes prazos apenas ao trecho que fala de envios fora da região metropolitana.
     if "fora da regiao metropolitana de campo grande" not in source:
         return {}
     times = {}
@@ -117,6 +128,7 @@ def _shipping_mode_times(source: str) -> dict[str, tuple[str, str]]:
 
 
 def shipping_mode_summary(evidence: list[dict], modes: tuple[str, ...]) -> str | None:
+    # Só responde se um mesmo trecho contiver todas as modalidades solicitadas.
     for item in evidence:
         source = normalize_text(" ".join(item["text"].split()))
         times = _shipping_mode_times(source)
@@ -137,6 +149,7 @@ def shipping_mode_summary(evidence: list[dict], modes: tuple[str, ...]) -> str |
 
 def delivery_time_summary(evidence: list[dict]) -> str | None:
     """Resume apenas os prazos que constam dos trechos recuperados."""
+    # Produz parágrafos separados para a região metropolitana e outras cidades.
     paragraphs = []
     for item in evidence:
         source = normalize_text(" ".join(item["text"].split()))
@@ -165,6 +178,7 @@ def delivery_time_summary(evidence: list[dict]) -> str | None:
 
 
 def finalize_policy_answer(answer: str, evidence: list[dict], question: str = "") -> str:
+    # Sem evidência ou diante do fallback, não tenta completar a resposta do modelo.
     if not evidence or answer == FALLBACK:
         return answer
     if _simple_return_request(question):
@@ -178,7 +192,9 @@ def finalize_policy_answer(answer: str, evidence: list[dict], question: str = ""
         and re.search(r"\b7\s*(?:\([^)]*\)\s*)?dias?\b", normalized_answer)
         and "online" not in normalized_answer
     ):
+        # Reforça a condição de compra online quando o modelo citou o prazo de 7 dias.
         answer += "\n\nO prazo de arrependimento citado se aplica a compras online."
     if not re.search(r"\bpagina\b|\bp\.\s*\d+", normalized_answer):
+        # Inclui a página consultada se a resposta não indicou sua fonte.
         answer += f"\n\nFonte: Manual de Políticas, página {evidence[0]['page']}."
     return answer

@@ -1,3 +1,5 @@
+# Testes da consulta de pedidos com validação de e-mail e campos autorizados.
+
 from loja_exemplo_assistant.tools.orders import get_order
 from loja_exemplo_assistant.services.data_loader import load_table
 

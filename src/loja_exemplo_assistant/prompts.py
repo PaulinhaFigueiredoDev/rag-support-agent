@@ -1,3 +1,5 @@
+# Este módulo define instruções do sistema e mensagens padrão usadas pelo agente.
+
 FALLBACK = "Não consegui concluir a consulta. Posso ajudar com outra pergunta?"
 POLICY_NOT_FOUND = (
     "Não encontrei no manual uma regra que responda com segurança a essa pergunta. "

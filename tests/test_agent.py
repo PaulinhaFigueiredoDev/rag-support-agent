@@ -1,3 +1,5 @@
+# Testes da orquestração do agente, das chamadas de ferramentas e das respostas com dados.
+
 import json
 from types import SimpleNamespace
 
