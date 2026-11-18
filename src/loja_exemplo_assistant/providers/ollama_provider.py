@@ -15,12 +15,14 @@ class ModelUnavailableError(Exception):
     """O modelo local não respondeu de forma utilizável."""
 
 
+# Representa o nome de uma ferramenta e os argumentos propostos pelo modelo.
 @dataclass(frozen=True)
 class ToolCall:
     name: str
     arguments: object
 
 
+# Agrupa o texto, as chamadas de ferramenta e a mensagem original retornada pelo modelo.
 @dataclass(frozen=True)
 class ModelResponse:
     content: str | None
@@ -28,6 +30,7 @@ class ModelResponse:
     assistant_message: dict
 
 
+# Envia uma solicitação simples ao modelo local e retorna o texto produzido.
 def ask_ollama(prompt: str) -> str:
     response = chat(
         model=get_chat_model(),
@@ -37,7 +40,9 @@ def ask_ollama(prompt: str) -> str:
     return response.message.content or ""
 
 
+# Envia histórico e schemas de ferramentas ao Ollama e normaliza a resposta ou sinaliza indisponibilidade.
 def complete(messages: list[dict], schemas: list[dict]) -> ModelResponse:
+    # Usa temperatura zero e permite tool calls para tornar o fluxo previsível.
     try:
         response = chat(
             model=get_chat_model(),
@@ -50,6 +55,7 @@ def complete(messages: list[dict], schemas: list[dict]) -> ModelResponse:
             ToolCall(call.function.name, call.function.arguments)
             for call in (message.tool_calls or [])
         ]
+        # Verifica a estrutura antes que o agente use conteúdo ou argumentos do modelo.
         if not isinstance(message.content, (str, type(None))) or not all(
             isinstance(call.name, str) and call.name and isinstance(call.arguments, (dict, str))
             for call in calls
@@ -59,12 +65,14 @@ def complete(messages: list[dict], schemas: list[dict]) -> ModelResponse:
         if not isinstance(assistant_message, dict):
             raise ValueError("Mensagem do modelo inválida")
         return ModelResponse(message.content, calls, assistant_message)
+    # Converte exceções do cliente e respostas malformadas em um único erro do provedor.
     except (ConnectionError, HttpRequestError, RequestError, ResponseError,
             AttributeError, KeyError, TypeError, ValueError) as exc:
         raise ModelUnavailableError from exc
 
 
 def forced_call_message(call: ToolCall) -> dict:
+    # Registra uma chamada montada pela aplicação no formato de mensagem do Ollama.
     return {
         "role": "assistant",
         "content": "",
@@ -76,6 +84,7 @@ def forced_call_message(call: ToolCall) -> dict:
 
 
 def tool_result_message(call: ToolCall, result: object) -> dict:
+    # Associa o resultado ao nome da ferramenta e o serializa em JSON para o histórico.
     return {
         "role": "tool",
         "tool_name": call.name,
@@ -85,6 +94,7 @@ def tool_result_message(call: ToolCall, result: object) -> dict:
 
 def run_ollama_turn(messages: list[dict], user_text: str) -> str:
     """Compatibilidade com a API anterior baseada em uma lista de mensagens."""
+    # Faz importações locais para evitar dependência circular com o módulo do agente.
     from loja_exemplo_assistant.agent import run_turn
     from loja_exemplo_assistant.return_dialogue import session_from_messages
 

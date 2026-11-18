@@ -1,3 +1,5 @@
+# Testes da ingestão de PDF, divisão em trechos e recuperação no índice FAISS.
+
 import json
 from pathlib import Path
 from types import SimpleNamespace

@@ -1,3 +1,5 @@
+# Testes dos resumos de política limitados às evidências recuperadas.
+
 from loja_exemplo_assistant.policy import (
     delivery_time_summary, finalize_policy_answer, online_return_summary,
     requested_shipping_modes, shipping_mode_summary,

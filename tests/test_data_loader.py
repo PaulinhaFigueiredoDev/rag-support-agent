@@ -1,3 +1,5 @@
+# Testes do carregamento das tabelas CSV e da rejeição de nomes e arquivos inválidos.
+
 import pytest
 from loja_exemplo_assistant.services import data_loader
 from loja_exemplo_assistant.services.data_loader import load_table

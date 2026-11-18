@@ -1,4 +1,4 @@
-"""Teste manual de ponta a ponta das respostas baseadas nos CSVs.
+"""Teste de ponta a ponta das respostas baseadas em CSVs e nas políticas locais.
 
 Execute na raiz do projeto com Ollama, modelos de chat e embedding e índice FAISS prontos:
     python scripts/smoke_grounded.py
@@ -9,6 +9,7 @@ from loja_exemplo_assistant.prompts import MODEL_UNAVAILABLE
 from loja_exemplo_assistant.session import Session
 
 
+# Faz uma pergunta ao agente e encerra o roteiro se faltar um resultado esperado ou surgir conteúdo proibido.
 def check(session: Session, question: str, expected: str | tuple[str, ...], forbidden: str | None = None) -> None:
     answer = run_turn(session, question)
     print(f"Cliente: {question}\nAgente: {answer}\n")
@@ -23,6 +24,7 @@ def check(session: Session, question: str, expected: str | tuple[str, ...], forb
 
 
 def main() -> None:
+    # Executa uma sequência de cenários de preço, estoque, pedido e prazo usando sessões isoladas quando necessário.
     product_session = Session()
     check(product_session, "Qual o preço do produto 81 no Pix?", "R$ 569,91")
     check(product_session, "esta disponivel em estoque?", "12 em estoque")

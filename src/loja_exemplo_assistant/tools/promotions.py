@@ -1,6 +1,9 @@
+# Este módulo calcula preços considerando promoções ativas e forma de pagamento.
+
 from decimal import Decimal, ROUND_HALF_UP
 from loja_exemplo_assistant.services.data_loader import load_table
 
+# Calcula o preço final com a promoção ativa ou desconto Pix permitido, sem acumular descontos.
 def get_product_price(product_id: int, payment: str | None = None) -> dict:
     products = load_table("products")
     promotions = load_table("promotions")

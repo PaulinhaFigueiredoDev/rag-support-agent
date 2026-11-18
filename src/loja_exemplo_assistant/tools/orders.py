@@ -1,6 +1,9 @@
+# Este módulo consulta pedidos e limita os campos retornados após validar número e e-mail.
+
 from loja_exemplo_assistant.services.data_loader import load_table
 
 
+# Busca pedido pelo número e e-mail associado, expondo somente status e dados de entrega permitidos.
 def get_order(order_id: int, email: str) -> dict:
     if order_id < 1 or not email.strip():
         return {"found": False}

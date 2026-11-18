@@ -4,5 +4,6 @@ from loja_exemplo_assistant.config import get_rag_top_k
 from loja_exemplo_assistant.rag.retriever import retrieve_policy
 
 
+# Encaminha a pergunta ao recuperador usando a quantidade de trechos configurada.
 def consult_policy(question: str) -> list[dict]:
     return retrieve_policy(question, top_k=get_rag_top_k())
