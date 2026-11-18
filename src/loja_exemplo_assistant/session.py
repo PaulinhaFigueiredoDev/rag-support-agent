@@ -10,8 +10,10 @@ class Session:
     messages: list[dict] = field(default_factory=lambda: [{"role": "system", "content": SYSTEM_PROMPT}])
     pending_return_question: str | None = None
 
+    # Registra no histórico a mensagem enviada pelo cliente.
     def add_user(self, content: str) -> None:
         self.messages.append({"role": "user", "content": content})
 
+    # Registra no histórico a resposta apresentada pelo agente.
     def add_assistant(self, content: str) -> None:
         self.messages.append({"role": "assistant", "content": content})

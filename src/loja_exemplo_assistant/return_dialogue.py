@@ -13,13 +13,16 @@ from loja_exemplo_assistant.session import Session
 from loja_exemplo_assistant.tools.registry import execute_tool
 
 
+# Resultado do esclarecimento de devolução, com resposta e evidências opcionais.
 @dataclass(frozen=True)
 class ReturnResolution:
+    # A resposta vai ao cliente; evidências e pergunta permitem registrar a consulta no histórico.
     answer: str
     evidence: list[dict] | None = None
     lookup_question: str | None = None
 
 
+# Reconhece pedidos de devolução por arrependimento e exclui assuntos de defeito ou garantia.
 def is_return_intent(question: str) -> bool:
     normalized = normalize_text(question)
     return bool(re.search(r"\b(devolver|devolucao|arrependimento)\b", normalized)) and not bool(
@@ -27,14 +30,17 @@ def is_return_intent(question: str) -> bool:
     )
 
 
+# Identifica se o cliente confirmou compra online ou presencial, respeitando negações.
 def _purchase_channel(text: str) -> str | None:
     normalized = normalize_text(text)
+    # Verifica negações antes de procurar "online" para evitar classificar o canal errado.
     negated_online = any(phrase in normalized for phrase in (
         "nao foi online", "nao for online", "nao e online", "nao comprei online",
     ))
     in_store = "presencial" in normalized or "loja fisica" in normalized or negated_online
     online = ("online" in normalized and not negated_online) or "pela internet" in normalized
     if in_store and online:
+        # Se os dois canais aparecem, a resposta é ambígua e precisa de esclarecimento.
         return None
     if in_store:
         return "presencial"
@@ -57,16 +63,18 @@ def session_from_messages(messages: list[dict]) -> Session:
 
 def resolve_return(session: Session, user_text: str) -> ReturnResolution | None:
     """Consulta a política após confirmar o canal de compra."""
+    # Sem pedido atual nem pendência anterior, deixa o turno seguir ao agente geral.
     previous_question = session.pending_return_question
     if previous_question is None and not is_return_intent(user_text):
         return None
-
     channel = _purchase_channel(user_text)
     if channel is None:
+        # Guarda a pergunta original para manter o contexto quando o cliente responder.
         session.pending_return_question = previous_question or user_text
         return ReturnResolution(PURCHASE_QUESTION)
 
     session.pending_return_question = None
+    # Consulta a política com a pergunta inicial, que contém o contexto da solicitação.
     lookup_question = previous_question or user_text
     evidence = execute_tool("consult_policy", {"question": lookup_question})
     if evidence == []:

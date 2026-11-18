@@ -1,3 +1,5 @@
+# Testes da configuração do modelo e da integração com o provedor Ollama.
+
 from types import SimpleNamespace
 
 import pytest

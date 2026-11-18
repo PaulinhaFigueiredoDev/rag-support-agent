@@ -1,3 +1,5 @@
+# Testes dos filtros e das validações da busca de produtos.
+
 import pytest
 from loja_exemplo_assistant.tools.products import search_products
 

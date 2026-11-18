@@ -1,3 +1,5 @@
+# Testes do cálculo de preços com promoções e desconto por Pix.
+
 from decimal import Decimal
 from loja_exemplo_assistant.services.data_loader import load_table
 from loja_exemplo_assistant.tools.promotions import get_product_price

@@ -1,3 +1,5 @@
+# Este módulo carrega tabelas CSV permitidas da pasta de dados do projeto.
+
 from pathlib import Path
 import pandas as pd
 

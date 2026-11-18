@@ -1,10 +1,14 @@
+# Este módulo carrega e valida configurações do ambiente para o modelo e a recuperação RAG.
+
 import os
 
 from dotenv import load_dotenv
 
+# Carrega variáveis do arquivo .env sem substituir valores já definidos no ambiente.
 load_dotenv()
 
 
+# Retorna o modelo de conversa configurado ou o padrão local do projeto.
 def get_chat_model() -> str:
     return os.getenv("OLLAMA_CHAT_MODEL", "qwen2.5:3b")
 
