@@ -1,82 +1,132 @@
-# rag-support-agent
+# Assistente de atendimento com RAG
 
-Assistente de atendimento para uma loja de instrumentos musicais, com Ollama local, consultas a dados CSV e busca RAG nas políticas da loja.
+## O que é o projeto?
 
-## Dados de demonstração
+Um assistente de atendimento pelo terminal para uma loja fictícia de instrumentos musicais. Ele consulta arquivos CSV para responder sobre produtos, preços, estoque e pedidos. Para perguntas sobre trocas, devoluções e entregas, usa RAG para recuperar trechos do manual de políticas e indicar as páginas usadas como referência.
 
-O [manual de políticas](data/documents/politicas_demo.pdf) mantém as regras, seções e páginas do documento usado no desenvolvimento. Nome da loja, razão social, CNPJ, endereço, telefones e e-mail foram substituídos por identificadores fictícios. A loja e os dados de contato do PDF são apenas para demonstração; o CNPJ `00.000.000/0000-00` e o domínio `.invalid` não identificam uma empresa ou canal de atendimento.
+O projeto usa dados de demonstração. Os modelos de conversa e de embeddings rodam localmente com o Ollama.
 
-O PDF original permanece fora do Git. O índice FAISS também é local e deve ser gerado a partir do manual de demonstração.
+O [manual de políticas de demonstração](data/documents/politicas_demo.pdf) mantém as regras e as páginas do documento usado no desenvolvimento. O nome da loja e os dados de contato foram substituídos por identificadores fictícios.
 
-## Preparar o ambiente
+## Arquitetura do projeto
 
-Execute os comandos na raiz do repositório. São necessários Python 3.11 ou superior e [Ollama](https://ollama.com/) em execução. No macOS e Linux:
+A aplicação Python tem dois fluxos.
+
+1. **Preparação do índice.** Durante a configuração, você executa `python scripts/build_index.py`. O script abre o manual em PDF, divide o texto em trechos e registra a página de origem de cada um. Depois, usa o Ollama para gerar os embeddings e salva o índice FAISS, os trechos e os metadados em `storage/faiss/`.
+2. **Atendimento.** O `main.py` inicia a sessão no terminal. O agente Python coordena as chamadas ao modelo de conversa e às ferramentas. As perguntas sobre produtos, preços, estoque e pedidos acionam consultas aos CSVs. Quando a pergunta exige uma consulta de política, a ferramenta `consult_policy` usa o Ollama para gerar um embedding da pergunta e busca trechos no índice FAISS já preparado.
+
+![Arquitetura do assistente com RAG: o setup gera o índice FAISS e, durante o atendimento, o agente consulta os CSVs ou recupera trechos do manual pelo RAG.](docs/architecture/arquitetura.png)
+
+Veja também o [contexto do sistema](docs/architecture/01-system-context.md) e o [fluxo RAG](docs/architecture/04-rag-flow.md).
+
+### Estrutura do projeto
+
+```text
+.
+├── main.py                       # Inicia a sessão no terminal
+├── src/loja_exemplo_assistant/    # Agente, ferramentas e busca RAG
+├── scripts/
+│   ├── build_index.py            # Gera o índice a partir do manual
+│   └── smoke_grounded.py         # Verifica os fluxos de atendimento
+├── data/
+│   ├── csv/                      # Dados da loja
+│   └── documents/                # Manual de políticas em PDF
+├── docs/architecture/            # Documentação e diagrama da arquitetura
+├── storage/faiss/                # Índice, trechos e metadados gerados
+└── tests/                        # Testes automatizados
+```
+
+### Formatos de dados
+
+| Formato | Uso no projeto |
+|---|---|
+| CSV | Fonte dos dados de produtos, categorias, promoções, pedidos e clientes. |
+| PDF | Manual de políticas em `data/documents/politicas_demo.pdf`, lido durante a indexação. |
+| FAISS | Índice vetorial gerado em `storage/faiss/index.faiss`. |
+| JSON | `chunks.json` guarda os trechos e suas páginas. `metadata.json` registra o modelo de embeddings, a dimensão dos vetores e a quantidade de trechos. |
+
+## Como rodar o projeto
+
+### Requisitos
+
+- Python 3.11 ou superior.
+- [Ollama instalado](https://ollama.com/) e em execução. Se necessário, abra o aplicativo ou rode `ollama serve` em outro terminal.
+
+A execução local com Ollama dispensa chave de API.
+
+### 1. Instalação e configuração
+
+Na raiz do repositório, crie o ambiente virtual e instale as dependências.
+
+**macOS ou Linux**
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
-cp .env.example .env
+```
+
+**Windows com PowerShell**
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+```
+
+Para personalizar a configuração, copie `.env.example` para `.env` com `cp .env.example .env` no macOS ou Linux, ou `Copy-Item .env.example .env` no PowerShell. Com os valores padrão, você pode pular essa etapa.
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `OLLAMA_CHAT_MODEL` | `qwen2.5:3b` | Modelo de conversa local. Baixe o modelo escolhido com `ollama pull`. |
+| `RAG_TOP_K` | `3` | Quantidade de trechos candidatos por pergunta de política. Aceita inteiros de `1` a `5`. |
+
+Baixe os modelos de conversa e de embeddings.
+
+```bash
 ollama pull qwen2.5:3b
 ollama pull embeddinggemma
 ```
 
-No Windows, ative o ambiente com `.venv\Scripts\Activate.ps1` antes da instalação. Se `ollama list` não conseguir conectar, inicie o aplicativo Ollama ou execute `ollama serve` em outro terminal.
-
-Gere o índice local a partir do PDF de demonstração:
+Gere o índice de políticas.
 
 ```bash
 python scripts/build_index.py
 ```
 
-Os arquivos são criados em `storage/faiss/` e não entram no Git. Refaça esse comando se o PDF ou o modelo de embeddings mudar.
+Quando aparecer `Índice criado`, os arquivos estarão disponíveis em `storage/faiss/`. Gere o índice novamente se atualizar o manual ou mudar o modelo de embeddings no código.
 
-## Conversar com o agente
+### 2. Uso
+
+Inicie o assistente.
 
 ```bash
 python main.py
 ```
 
-Exemplos de perguntas para os dados de demonstração:
+Quando aparecer o prompt `Cliente:`, experimente uma pergunta de cada fluxo.
 
-```text
-Cliente: Qual o preço do produto 81 no Pix?
-Cliente: O produto 81 está disponível em estoque?
-Cliente: Qual o status do pedido 1?
-Cliente: pedro.oliveira@jmail.com
-Cliente: Qual o prazo de entrega?
-Cliente: Quero SEDEX
-```
+| Digite no terminal | O que você deve ver |
+|---|---|
+| `O produto 81 está disponível em estoque?` | Uma resposta indicando 12 unidades em estoque nos dados de demonstração. |
+| `Quero SEDEX` | Uma resposta com o prazo de 2 a 5 dias úteis para localidades fora da região metropolitana e referência à página 5 do manual. |
 
-Digite `sair` para encerrar. O histórico existe apenas durante a conversa aberta; uma nova execução começa outra sessão.
+Digite `sair` para encerrar a sessão.
 
-## Configuração
+O assistente consulta número e e-mail para localizar pedidos. Essa consulta não autentica a identidade do cliente. Para alterar pedidos, processar pagamentos, iniciar devoluções ou selecionar frete, procure o atendimento humano.
 
-O arquivo `.env` permite ajustar:
+### 3. Testes
 
-| Variável | Padrão | Uso |
-| --- | --- | --- |
-| `OLLAMA_CHAT_MODEL` | `qwen2.5:3b` | Modelo local usado para conversar e escolher ferramentas. Instale o modelo escolhido com `ollama pull`. |
-| `RAG_TOP_K` | `3` | Quantidade de trechos candidatos de política por pergunta. Aceita inteiros de `1` a `5`. |
-
-O modelo de embeddings é `embeddinggemma`; o índice FAISS registra esse nome e precisa ser reconstruído se ele for alterado no código. O valor `3` para `RAG_TOP_K` foi usado nos testes de conversa. Valores menores podem deixar de recuperar páginas necessárias para uma resposta completa. Reinicie `main.py` após mudar `.env`.
-
-## Testar
-
-Os testes automatizados usam respostas simuladas do Ollama:
+A suíte automatizada usa respostas simuladas do Ollama.
 
 ```bash
 python -m pytest -q
 ```
 
-Para conferir uma conversa real com Ollama e o índice FAISS, execute:
+Com o Ollama em execução e o índice gerado, rode o roteiro que verifica as respostas de preço, estoque, pedidos e entrega.
 
 ```bash
 python scripts/smoke_grounded.py
 ```
 
-O roteiro verifica preço, estoque, pedido com e sem e-mail correto, prazo de entrega e SEDEX. Ele termina com `Teste concluído` quando todas as verificações passam.
-
-## Limites do atendimento
-
-Produtos, preços e pedidos vêm dos CSVs de demonstração; eles não refletem uma loja em operação. O agente consulta o status do pedido após receber número e e-mail, mas essa conferência não autentica a identidade do cliente. Ele não altera pedidos, processa pagamentos, inicia devoluções nem seleciona frete. Para essas ações, oriente o cliente a procurar atendimento humano.
+A mensagem `Teste concluído` indica que as verificações passaram.
